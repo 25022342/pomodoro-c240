@@ -57,9 +57,13 @@ body {
 
 .progress-ring__foreground {
   stroke: #2563eb;
-  stroke-dasharray: 339.292;
   stroke-dashoffset: 0;
   transition: stroke-dashoffset 0.3s ease;
+  stroke-linecap: round;
+}
+
+.progress-ring {
+  pointer-events: none;
 }
 
 .controls {

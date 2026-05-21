@@ -11,10 +11,20 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 
 function initializeApp() {
   timerDisplay = document.getElementById('timer-display');
+let progressForeground = null;
+let progressCircumference = 0;
   timerLabel = document.getElementById('timer-label');
 
   updateTimerDisplay(remainingSeconds);
   bindUIEvents();
+
+  progressForeground = document.querySelector('.progress-ring__foreground');
+  if (progressForeground) {
+    const r = parseFloat(progressForeground.getAttribute('r')) || 0;
+    progressCircumference = 2 * Math.PI * r;
+    progressForeground.setAttribute('stroke-dasharray', String(progressCircumference));
+    progressForeground.setAttribute('stroke-dashoffset', '0');
+  }
 }
 
 function bindUIEvents() {
@@ -37,10 +47,20 @@ function bindUIEvents() {
   if (resetButton) {
     resetButton.addEventListener('click', resetTimer);
   }
+  // Update circular progress based on the current phase total
+  const total = state.phase === 'work' ? WORK_DURATION_SECONDS : BREAK_DURATION_SECONDS;
+  updateCircularProgress(secondsLeft, total);
 }
 
 function startTimer() {
-  if (timerInterval !== null) {
+  if (!progressForeground || !progressCircumference || !totalSeconds) return;
+
+  // fraction of time remaining (1.0 = full ring, 0.0 = empty)
+  const fraction = Math.max(0, Math.min(1, secondsLeft / totalSeconds));
+
+  // stroke-dashoffset is the amount of the circle that's hidden.
+  const offset = progressCircumference * (1 - fraction);
+  progressForeground.setAttribute('stroke-dashoffset', String(offset));
     return; // Timer already running
   }
 
@@ -55,7 +75,12 @@ function startTimer() {
 
 function pauseTimer() {
   if (timerInterval === null) {
-    return;
+    // Reset the ring for the new phase
+    if (progressForeground && progressCircumference) {
+      // ensure dasharray is set for the new circumference
+      progressForeground.setAttribute('stroke-dasharray', String(progressCircumference));
+    }
+    updateTimerDisplay(remainingSeconds);
   }
 
   clearInterval(timerInterval);
@@ -72,7 +97,12 @@ function resumeTimer() {
 }
 
 function resetTimer() {
-  if (timerInterval !== null) {
+  // Reset ring to full
+  if (progressForeground && progressCircumference) {
+    progressForeground.setAttribute('stroke-dasharray', String(progressCircumference));
+    progressForeground.setAttribute('stroke-dashoffset', '0');
+  }
+  updateTimerDisplay(remainingSeconds);
     clearInterval(timerInterval);
     timerInterval = null;
   }

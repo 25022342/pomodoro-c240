@@ -6,25 +6,26 @@ const state = { isRunning: false, phase: 'work' };
 
 let timerDisplay = null;
 let timerLabel = null;
+let progressForeground = null;
+let progressCircumference = 0;
+let audioContext = null;
 
 document.addEventListener('DOMContentLoaded', initializeApp);
 
 function initializeApp() {
   timerDisplay = document.getElementById('timer-display');
-let progressForeground = null;
-let progressCircumference = 0;
   timerLabel = document.getElementById('timer-label');
-
-  updateTimerDisplay(remainingSeconds);
-  bindUIEvents();
-
   progressForeground = document.querySelector('.progress-ring__foreground');
+
   if (progressForeground) {
     const r = parseFloat(progressForeground.getAttribute('r')) || 0;
     progressCircumference = 2 * Math.PI * r;
     progressForeground.setAttribute('stroke-dasharray', String(progressCircumference));
     progressForeground.setAttribute('stroke-dashoffset', '0');
   }
+
+  updateTimerDisplay(remainingSeconds);
+  bindUIEvents();
 }
 
 function bindUIEvents() {
@@ -47,44 +48,32 @@ function bindUIEvents() {
   if (resetButton) {
     resetButton.addEventListener('click', resetTimer);
   }
-  // Update circular progress based on the current phase total
-  const total = state.phase === 'work' ? WORK_DURATION_SECONDS : BREAK_DURATION_SECONDS;
-  updateCircularProgress(secondsLeft, total);
+}
+
+function getTotalSeconds() {
+  return state.phase === 'work' ? WORK_DURATION_SECONDS : BREAK_DURATION_SECONDS;
 }
 
 function startTimer() {
-  if (!progressForeground || !progressCircumference || !totalSeconds) return;
-
-  // fraction of time remaining (1.0 = full ring, 0.0 = empty)
-  const fraction = Math.max(0, Math.min(1, secondsLeft / totalSeconds));
-
-  // stroke-dashoffset is the amount of the circle that's hidden.
-  const offset = progressCircumference * (1 - fraction);
-  progressForeground.setAttribute('stroke-dashoffset', String(offset));
-    return; // Timer already running
+  if (state.isRunning) {
+    return;
   }
+
+  ensureAudioContext();
 
   state.isRunning = true;
   timerLabel.textContent = state.phase === 'work' ? 'Work' : 'Break';
   updateTimerDisplay(remainingSeconds);
 
-  timerInterval = setInterval(() => {
-    handleTimerTick();
-  }, 1000);
+  timerInterval = setInterval(handleTimerTick, 1000);
 }
 
 function pauseTimer() {
-  if (timerInterval === null) {
-    // Reset the ring for the new phase
-    if (progressForeground && progressCircumference) {
-      // ensure dasharray is set for the new circumference
-      progressForeground.setAttribute('stroke-dasharray', String(progressCircumference));
-    }
-    updateTimerDisplay(remainingSeconds);
+  if (timerInterval !== null) {
+    clearInterval(timerInterval);
+    timerInterval = null;
   }
 
-  clearInterval(timerInterval);
-  timerInterval = null;
   state.isRunning = false;
 }
 
@@ -97,16 +86,8 @@ function resumeTimer() {
 }
 
 function resetTimer() {
-  // Reset ring to full
-  if (progressForeground && progressCircumference) {
-    progressForeground.setAttribute('stroke-dasharray', String(progressCircumference));
-    progressForeground.setAttribute('stroke-dashoffset', '0');
-  }
-  updateTimerDisplay(remainingSeconds);
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-
+  clearInterval(timerInterval);
+  timerInterval = null;
   remainingSeconds = WORK_DURATION_SECONDS;
   state.phase = 'work';
   state.isRunning = false;
@@ -124,10 +105,17 @@ function updateTimerDisplay(secondsLeft) {
   }
 
   timerDisplay.textContent = formatTime(secondsLeft);
+  updateCircularProgress(secondsLeft, getTotalSeconds());
 }
 
 function updateCircularProgress(secondsLeft, totalSeconds) {
-  // Circular progress update logic will be added later.
+  if (!progressForeground || !progressCircumference || totalSeconds <= 0) {
+    return;
+  }
+
+  const fraction = Math.max(0, Math.min(1, secondsLeft / totalSeconds));
+  const offset = progressCircumference * (1 - fraction);
+  progressForeground.setAttribute('stroke-dashoffset', String(offset));
 }
 
 function handleTimerTick() {
@@ -138,10 +126,11 @@ function handleTimerTick() {
   remainingSeconds -= 1;
 
   if (remainingSeconds <= 0) {
-    // Toggle phase and load its duration, keep the interval running
-    state.phase = state.phase === 'work' ? 'break' : 'work';
-    remainingSeconds = state.phase === 'work' ? WORK_DURATION_SECONDS : BREAK_DURATION_SECONDS;
+    const previousPhase = state.phase;
+    state.phase = previousPhase === 'work' ? 'break' : 'work';
+    remainingSeconds = getTotalSeconds();
     if (timerLabel) timerLabel.textContent = state.phase === 'work' ? 'Work' : 'Break';
+    playTransitionSound(previousPhase, state.phase);
     updateTimerDisplay(remainingSeconds);
     return;
   }
@@ -165,8 +154,47 @@ function incrementSessionCount() {
   // Counter increment logic will be added later.
 }
 
-function playTransitionSound() {
-  // Sound logic will be added later.
+function ensureAudioContext() {
+  if (!audioContext) {
+    audioContext = new AudioContext();
+  }
+
+  if (audioContext.state === 'suspended') {
+    void audioContext.resume().catch(() => {});
+  }
+
+  return audioContext;
+}
+
+function playTone(frequency, durationSeconds = 0.2) {
+  const audio = ensureAudioContext();
+  const oscillator = audio.createOscillator();
+  const gain = audio.createGain();
+
+  oscillator.type = 'sine';
+  oscillator.frequency.value = frequency;
+  oscillator.connect(gain);
+  gain.connect(audio.destination);
+
+  const now = audio.currentTime;
+  gain.gain.setValueAtTime(0.1, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + durationSeconds);
+
+  oscillator.start(now);
+  oscillator.stop(now + durationSeconds);
+
+  oscillator.onended = () => {
+    oscillator.disconnect();
+    gain.disconnect();
+  };
+}
+
+function playTransitionSound(fromPhase, toPhase) {
+  if (fromPhase === 'work' && toPhase === 'break') {
+    playTone(440, 0.2);
+  } else if (fromPhase === 'break' && toPhase === 'work') {
+    playTone(660, 0.2);
+  }
 }
 
 function formatTime(seconds) {

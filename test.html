@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Pomodoro App Test</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;margin:24px}
+    #result{margin-top:16px;font-weight:700}
+    #result.pass{color:green}
+    #result.fail{color:red}
+  </style>
+</head>
+<body>
+  <h2>Pomodoro Phase Switch Test</h2>
+  <div>Initial label: <span id="timer-label">Work</span></div>
+  <div>Timer: <span id="timer-display">25:00</span></div>
+  <div>Sessions: <span id="session-count">0</span></div>
+  <div id="result">Running...</div>
+
+  <script src="app.js"></script>
+  <script>
+    function showResult(ok, msg) {
+      const el = document.getElementById('result');
+      el.textContent = ok ? 'PASS' : 'FAIL: ' + msg;
+      el.className = ok ? 'pass' : 'fail';
+    }
+
+    function runTest() {
+      // Give the app a moment to initialize
+      setTimeout(() => {
+        try {
+          if (typeof handleTimerTick !== 'function') {
+            showResult(false, 'app not loaded');
+            return;
+          }
+
+          // Ensure starting state is Work
+          state.phase = 'work';
+          if (timerLabel) timerLabel.textContent = 'Work';
+
+          // Fast-forward: set 1 second remaining and tick once
+          remainingSeconds = 1;
+          handleTimerTick();
+
+          // Check after a short delay to allow UI update
+          setTimeout(() => {
+            const label = timerLabel ? timerLabel.textContent : '';
+            if (label === 'Break') {
+              showResult(true);
+            } else {
+              showResult(false, 'label=' + label);
+            }
+          }, 50);
+        } catch (err) {
+          showResult(false, err && err.message ? err.message : String(err));
+        }
+      }, 50);
+    }
+
+    window.addEventListener('load', runTest);
+  </script>
+</body>
+</html>

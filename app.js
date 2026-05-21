@@ -1,5 +1,6 @@
 const WORK_DURATION_SECONDS = 25 * 60;
 const BREAK_DURATION_SECONDS = 5 * 60;
+const SESSION_COUNT_STORAGE_KEY = 'pomodoroSessions';
 let timerInterval = null;
 let remainingSeconds = WORK_DURATION_SECONDS;
 const state = { isRunning: false, phase: 'work' };
@@ -8,7 +9,9 @@ let timerDisplay = null;
 let timerLabel = null;
 let progressForeground = null;
 let progressCircumference = 0;
+let sessionCountDisplay = null;
 let audioContext = null;
+let sessionCount = 0;
 
 document.addEventListener('DOMContentLoaded', initializeApp);
 
@@ -24,6 +27,8 @@ function initializeApp() {
     progressForeground.setAttribute('stroke-dashoffset', '0');
   }
 
+  sessionCountDisplay = document.getElementById('session-count');
+  loadSessionCount();
   updateTimerDisplay(remainingSeconds);
   bindUIEvents();
 }
@@ -47,6 +52,11 @@ function bindUIEvents() {
   const resetButton = document.getElementById('reset-button');
   if (resetButton) {
     resetButton.addEventListener('click', resetTimer);
+  }
+
+  const resetSessionsButton = document.getElementById('reset-sessions-button');
+  if (resetSessionsButton) {
+    resetSessionsButton.addEventListener('click', resetSessionCount);
   }
 }
 
@@ -128,6 +138,9 @@ function handleTimerTick() {
   if (remainingSeconds <= 0) {
     const previousPhase = state.phase;
     state.phase = previousPhase === 'work' ? 'break' : 'work';
+    if (previousPhase === 'work' && state.phase === 'break') {
+      incrementSessionCount();
+    }
     remainingSeconds = getTotalSeconds();
     if (timerLabel) timerLabel.textContent = state.phase === 'work' ? 'Work' : 'Break';
     playTransitionSound(previousPhase, state.phase);
@@ -143,15 +156,32 @@ function completeSession() {
 }
 
 function loadSessionCount() {
-  // Persistence load logic will be added later.
+  const savedValue = window.localStorage.getItem(SESSION_COUNT_STORAGE_KEY);
+  const parsedValue = parseInt(savedValue, 10);
+  sessionCount = Number.isFinite(parsedValue) && parsedValue >= 0 ? parsedValue : 0;
+  updateSessionDisplay();
 }
 
 function saveSessionCount(count) {
-  // Persistence save logic will be added later.
+  window.localStorage.setItem(SESSION_COUNT_STORAGE_KEY, String(count));
 }
 
 function incrementSessionCount() {
-  // Counter increment logic will be added later.
+  sessionCount += 1;
+  saveSessionCount(sessionCount);
+  updateSessionDisplay();
+}
+
+function resetSessionCount() {
+  sessionCount = 0;
+  saveSessionCount(sessionCount);
+  updateSessionDisplay();
+}
+
+function updateSessionDisplay() {
+  if (sessionCountDisplay) {
+    sessionCountDisplay.textContent = String(sessionCount);
+  }
 }
 
 function ensureAudioContext() {

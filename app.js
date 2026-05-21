@@ -1,6 +1,7 @@
 const WORK_DURATION_SECONDS = 25 * 60;
 let timerInterval = null;
 let remainingSeconds = WORK_DURATION_SECONDS;
+const state = { isRunning: false, phase: 'work' };
 
 const timerDisplay = document.getElementById('timer-display');
 const timerLabel = document.getElementById('timer-label');
@@ -17,6 +18,21 @@ function bindUIEvents() {
   if (startButton) {
     startButton.addEventListener('click', startTimer);
   }
+
+  const pauseButton = document.getElementById('pause-button');
+  if (pauseButton) {
+    pauseButton.addEventListener('click', pauseTimer);
+  }
+
+  const resumeButton = document.getElementById('resume-button');
+  if (resumeButton) {
+    resumeButton.addEventListener('click', resumeTimer);
+  }
+
+  const resetButton = document.getElementById('reset-button');
+  if (resetButton) {
+    resetButton.addEventListener('click', resetTimer);
+  }
 }
 
 function startTimer() {
@@ -24,6 +40,7 @@ function startTimer() {
     return; // Timer already running
   }
 
+  state.isRunning = true;
   timerLabel.textContent = 'Work session';
   updateTimerDisplay(remainingSeconds);
 
@@ -33,15 +50,34 @@ function startTimer() {
 }
 
 function pauseTimer() {
-  // Pause timer logic will be added later.
+  if (timerInterval === null) {
+    return;
+  }
+
+  clearInterval(timerInterval);
+  timerInterval = null;
+  state.isRunning = false;
 }
 
 function resumeTimer() {
-  // Resume timer logic will be added later.
+  if (state.isRunning || remainingSeconds <= 0) {
+    return;
+  }
+
+  startTimer();
 }
 
 function resetTimer() {
-  // Reset timer logic will be added later.
+  if (timerInterval !== null) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+
+  remainingSeconds = WORK_DURATION_SECONDS;
+  state.phase = 'work';
+  state.isRunning = false;
+  timerLabel.textContent = 'Work session';
+  updateTimerDisplay(remainingSeconds);
 }
 
 function switchToMode(mode) {

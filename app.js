@@ -1,14 +1,18 @@
 const WORK_DURATION_SECONDS = 25 * 60;
+const BREAK_DURATION_SECONDS = 5 * 60;
 let timerInterval = null;
 let remainingSeconds = WORK_DURATION_SECONDS;
 const state = { isRunning: false, phase: 'work' };
 
-const timerDisplay = document.getElementById('timer-display');
-const timerLabel = document.getElementById('timer-label');
+let timerDisplay = null;
+let timerLabel = null;
 
 document.addEventListener('DOMContentLoaded', initializeApp);
 
 function initializeApp() {
+  timerDisplay = document.getElementById('timer-display');
+  timerLabel = document.getElementById('timer-label');
+
   updateTimerDisplay(remainingSeconds);
   bindUIEvents();
 }
@@ -41,7 +45,7 @@ function startTimer() {
   }
 
   state.isRunning = true;
-  timerLabel.textContent = 'Work session';
+  timerLabel.textContent = state.phase === 'work' ? 'Work' : 'Break';
   updateTimerDisplay(remainingSeconds);
 
   timerInterval = setInterval(() => {
@@ -76,7 +80,7 @@ function resetTimer() {
   remainingSeconds = WORK_DURATION_SECONDS;
   state.phase = 'work';
   state.isRunning = false;
-  timerLabel.textContent = 'Work session';
+  if (timerLabel) timerLabel.textContent = 'Work';
   updateTimerDisplay(remainingSeconds);
 }
 
@@ -102,13 +106,17 @@ function handleTimerTick() {
   }
 
   remainingSeconds -= 1;
-  updateTimerDisplay(remainingSeconds);
 
   if (remainingSeconds <= 0) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-    console.log('work complete');
+    // Toggle phase and load its duration, keep the interval running
+    state.phase = state.phase === 'work' ? 'break' : 'work';
+    remainingSeconds = state.phase === 'work' ? WORK_DURATION_SECONDS : BREAK_DURATION_SECONDS;
+    if (timerLabel) timerLabel.textContent = state.phase === 'work' ? 'Work' : 'Break';
+    updateTimerDisplay(remainingSeconds);
+    return;
   }
+
+  updateTimerDisplay(remainingSeconds);
 }
 
 function completeSession() {
